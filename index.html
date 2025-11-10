@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0"
+    />
+    <title>UR5 机器人 URDF 可视化</title>
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        display: flex;
+        min-height: 100vh;
+        background: #0f172a;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          "Helvetica Neue", Arial, "Noto Sans", sans-serif, "Apple Color Emoji",
+          "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+        color: #e2e8f0;
+      }
+
+      header {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 56px;
+        padding: 0 24px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        background: rgba(15, 23, 42, 0.9);
+        border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+        z-index: 10;
+      }
+
+      header h1 {
+        margin: 0;
+        font-size: 18px;
+        font-weight: 600;
+        letter-spacing: 0.5px;
+      }
+
+      header .actions {
+        display: flex;
+        gap: 12px;
+        align-items: center;
+      }
+
+      button {
+        padding: 6px 14px;
+        border-radius: 999px;
+        border: 1px solid rgba(148, 163, 184, 0.35);
+        background: rgba(30, 41, 59, 0.8);
+        color: inherit;
+        cursor: pointer;
+        transition: border-color 0.2s ease, background 0.2s ease;
+      }
+
+      button:hover {
+        background: rgba(30, 41, 59, 0.95);
+        border-color: rgba(148, 163, 184, 0.6);
+      }
+
+      main {
+        display: flex;
+        flex: 1;
+        padding-top: 56px;
+      }
+
+      .viewer-panel {
+        position: relative;
+        flex: 1;
+        min-width: 0;
+        border-right: 1px solid rgba(148, 163, 184, 0.2);
+      }
+
+      urdf-viewer {
+        display: block;
+        width: 100%;
+        height: 100%;
+      }
+
+      .control-panel {
+        width: 360px;
+        max-width: 50vw;
+        padding: 24px 20px;
+        overflow-y: auto;
+        background: rgba(15, 23, 42, 0.8);
+      }
+
+      .control-panel h2 {
+        margin: 0 0 12px;
+        font-size: 16px;
+        font-weight: 600;
+      }
+
+      .joint-card {
+        padding: 14px 16px;
+        margin-bottom: 16px;
+        border-radius: 12px;
+        background: rgba(30, 41, 59, 0.7);
+        border: 1px solid rgba(51, 65, 85, 0.9);
+        box-shadow: 0 12px 25px rgba(15, 23, 42, 0.35);
+      }
+
+      .joint-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        margin-bottom: 8px;
+      }
+
+      .joint-name {
+        font-size: 14px;
+        font-weight: 600;
+        letter-spacing: 0.3px;
+      }
+
+      .joint-meta {
+        font-size: 12px;
+        color: #94a3b8;
+      }
+
+      .joint-slider {
+        width: 100%;
+      }
+
+      .joint-range {
+        display: flex;
+        justify-content: space-between;
+        font-size: 12px;
+        margin-top: 6px;
+        color: #94a3b8;
+      }
+
+      .status {
+        margin-bottom: 20px;
+        padding: 12px 14px;
+        border-radius: 10px;
+        background: rgba(30, 41, 59, 0.5);
+        border: 1px solid rgba(51, 65, 85, 0.9);
+        font-size: 13px;
+        line-height: 1.6;
+      }
+
+      a {
+        color: #38bdf8;
+        text-decoration: none;
+      }
+
+      a:hover {
+        text-decoration: underline;
+      }
+
+      @media (max-width: 900px) {
+        body {
+          flex-direction: column;
+        }
+
+        header {
+          position: static;
+        }
+
+        main {
+          flex-direction: column;
+          padding-top: 0;
+        }
+
+        .viewer-panel,
+        .control-panel {
+          width: 100%;
+          max-width: none;
+        }
+
+        .control-panel {
+          border-top: 1px solid rgba(148, 163, 184, 0.2);
+          border-left: none;
+        }
+      }
+    </style>
+    <script type="module">
+      import "https://cdn.jsdelivr.net/npm/urdf-loaders@0.11.2/dist/urdf-viewer-element.js";
+
+      const DEG = 180 / Math.PI;
+      const RAD = Math.PI / 180;
+
+      const $ = (selector, parent = document) => parent.querySelector(selector);
+      const $$ = (selector, parent = document) => [
+        ...parent.querySelectorAll(selector),
+      ];
+
+      const formatAngle = (radian) =>
+        `${(radian * DEG).toFixed(1).padStart(7)}°`;
+
+      const createJointCard = (jointName, joint) => {
+        const card = document.createElement("div");
+        card.className = "joint-card joint-card--loading";
+        card.dataset.joint = jointName;
+
+        card.innerHTML = `
+          <div class="joint-header">
+            <div>
+              <div class="joint-name">${jointName}</div>
+              <div class="joint-meta">${joint.jointType}</div>
+            </div>
+            <div class="joint-meta joint-value">加载中...</div>
+          </div>
+          <input class="joint-slider" type="range" min="-180" max="180" step="0.5" value="0" />
+          <div class="joint-range">
+            <span class="joint-lower">-</span>
+            <span class="joint-upper">-</span>
+          </div>
+        `;
+
+        return card;
+      };
+
+      async function waitForRobot(viewer) {
+        if (viewer.robot) {
+          return viewer.robot;
+        }
+
+        return new Promise((resolve, reject) => {
+          const timeout = setTimeout(() => {
+            reject(new Error("加载 URDF 超时，请检查资源路径。"));
+          }, 30000);
+
+          const poll = () => {
+            if (viewer.robot) {
+              clearTimeout(timeout);
+              resolve(viewer.robot);
+            } else {
+              requestAnimationFrame(poll);
+            }
+          };
+
+          poll();
+        });
+      }
+
+      function setupJointsUI(viewer, robot) {
+        const controlPanel = $(".joint-list");
+        controlPanel.innerHTML = "";
+
+        const joints = Object.entries(robot.joints)
+          .filter(([, joint]) => joint.jointType !== "fixed")
+          .sort(([a], [b]) => a.localeCompare(b));
+
+        if (!joints.length) {
+          controlPanel.innerHTML = `<div class="status">当前 URDF 模型未包含可调节的关节。</div>`;
+          return;
+        }
+
+        for (const [jointName, joint] of joints) {
+          const card = createJointCard(jointName, joint);
+          controlPanel.appendChild(card);
+
+          const slider = $(".joint-slider", card);
+          const lowerLabel = $(".joint-lower", card);
+          const upperLabel = $(".joint-upper", card);
+          const valueLabel = $(".joint-value", card);
+
+          const lower =
+            joint.limit && Number.isFinite(joint.limit.lower)
+              ? joint.limit.lower
+              : -Math.PI;
+          const upper =
+            joint.limit && Number.isFinite(joint.limit.upper)
+              ? joint.limit.upper
+              : Math.PI;
+
+          slider.min = lower * DEG;
+          slider.max = upper * DEG;
+          slider.step = 0.5;
+          slider.value = joint.angle * DEG;
+
+          lowerLabel.textContent = formatAngle(lower);
+          upperLabel.textContent = formatAngle(upper);
+          valueLabel.textContent = formatAngle(joint.angle);
+
+          slider.addEventListener("input", (event) => {
+            const targetAngle = Number(event.target.value) * RAD;
+            joint.setJointValue(targetAngle);
+            valueLabel.textContent = formatAngle(targetAngle);
+          });
+        }
+      }
+
+      async function bootstrap() {
+        await customElements.whenDefined("urdf-viewer");
+        const viewer = $("urdf-viewer");
+        const status = $(".status");
+        status.textContent = "URDF 模型加载中...";
+
+        try {
+          const robot = await waitForRobot(viewer);
+          status.textContent = `已加载：${robot.name || "URDF Robot"}`;
+          setupJointsUI(viewer, robot);
+        } catch (error) {
+          status.textContent = error.message;
+          console.error(error);
+        }
+
+        $(".action-reset").addEventListener("click", () => {
+          const viewerRobot = viewer.robot;
+          if (!viewerRobot) {
+            return;
+          }
+
+          Object.values(viewerRobot.joints).forEach((joint) => {
+            if (joint.jointType === "fixed") {
+              return;
+            }
+            joint.setJointValue(0);
+          });
+
+          $$(".joint-card").forEach((card) => {
+            const slider = $(".joint-slider", card);
+            const valueLabel = $(".joint-value", card);
+            slider.value = 0;
+            valueLabel.textContent = formatAngle(0);
+          });
+        });
+      }
+
+      window.addEventListener("DOMContentLoaded", bootstrap);
+    </script>
+  </head>
+  <body>
+    <header>
+      <h1>UR5 机器人 URDF 预览</h1>
+      <div class="actions">
+        <button type="button" class="action-reset">关节归零</button>
+        <a
+          href="https://github.com/gkjohnson/urdf-loaders"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          urdf-loaders 文档
+        </a>
+      </div>
+    </header>
+    <main>
+      <section class="viewer-panel">
+        <urdf-viewer
+          package="./ur5"
+          urdf="./ur5/ur5_robot.urdf"
+          up="+Z"
+          display-shadow
+          auto-redraw
+          ambient-color="#1f2937"
+        ></urdf-viewer>
+      </section>
+      <aside class="control-panel">
+        <div class="status">等待加载...</div>
+        <h2>关节调节</h2>
+        <div class="joint-list"></div>
+      </aside>
+    </main>
+  </body>
+</html>
+
