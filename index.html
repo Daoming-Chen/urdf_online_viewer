@@ -1,46 +1,48 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html>
+    <head>
+        <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+        <meta charset="utf-8"/>
 
-<head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta http-equiv="Cache-Control" content="public, max-age=31536000" />
-    <title>UR5 机器人 URDF 可视化</title>
+        <title>URDF Viewer Example</title>
 
-    <script async src="https://ga.jspm.io/npm:es-module-shims@1.8.0/dist/es-module-shims.js"></script>
-    <script type="importmap">
-    {
-        "imports": {
-            "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
-            "three/": "https://cdn.jsdelivr.net/npm/three@0.160.0/",
-            "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
-        }
-    }
-    </script>
+        <script src="https://unpkg.com/@webcomponents/webcomponentsjs@2.4.3/webcomponents-bundle.js"></script>
+        <link href="https://fonts.googleapis.com/css?family=Roboto:100,300" rel="stylesheet"/>
+        <link href="./styles.css" type="text/css" rel="stylesheet" />
+        <script src="./src/redirect.js"></script>
+    </head>
+    <body tabindex="0">
 
-    <link rel="stylesheet" href="style.css">
+        <div id="menu">
+            <ul id="urdf-options">
+                <li urdf="./ur5_urdf/ur5e.urdf" color="#4CAF50">UR5e Robot</li>
+            </ul>
 
-    <script type="module" src="main.js"></script>
-</head>
-
-<body>
-    <header>
-        <h1>UR5 机器人 URDF 预览</h1>
-        <div class="actions">
-            <button type="button" class="action-reset">关节归零</button>
-            <div class="status">等待加载...</div>
+            <div id="controls" class="hidden">
+                <div id="toggle-controls"></div>
+                <div>Drag and drop URDF files or folders! <br/> (Chrome Only)</div>
+                <div id="ignore-joint-limits" class="toggle">Ignore Joint Limits</div>
+                <div id="hide-fixed" class="toggle">Hide Fixed Joints</div>
+                <div id="radians-toggle" class="toggle">Use Radians</div>
+                <div id="autocenter-toggle" class="toggle checked">Autocenter</div>
+                <div id="collision-toggle" class="toggle">Show Collision</div>
+                <div id="do-animate" class="toggle checked">Animate Joints</div>
+                <label>
+                    Up Axis
+                    <select id="up-select">
+                        <option value="+X">+X</option>
+                        <option value="-X">-X</option>
+                        <option value="+Y">+Y</option>
+                        <option value="-Y">-Y</option>
+                        <option value="+Z">+Z</option>
+                        <option value="-Z" selected>-Z</option>
+                    </select>
+                </label>
+                <ul></ul>
+            </div>
         </div>
-    </header>
-    <main>
-        <section class="viewer-panel">
-            <urdf-viewer package="ur5" urdf="ur5_urdf/ur5e.urdf" up="+Z" display-shadow auto-redraw
-                ambient-color="#1f2937"></urdf-viewer>
-        </section>
-        <aside class="control-panel">
-            <h2>关节调节</h2>
-            <div class="joint-list"></div>
-        </aside>
-    </main>
-</body>
+        <urdf-viewer up="-Z" display-shadow tabindex="0"></urdf-viewer>
 
+        <script type="module" src="./src/index.js"></script>
+    </body>
 </html>
