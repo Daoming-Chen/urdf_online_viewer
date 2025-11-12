@@ -288,7 +288,9 @@ document.addEventListener('WebComponentsReady', () => {
     document.querySelector('li[urdf]').dispatchEvent(new Event('click'));
 
     // Set package path for UR5 robot
-    viewer.package = './ur5_urdf';
+    // Use import.meta.env.BASE_URL to get the correct base path for both dev and production
+    const basePath = import.meta.env.BASE_URL;
+    viewer.package = basePath + 'ur5_urdf';
 
     registerDragEvents(viewer, () => {
         setColor('#263238');
